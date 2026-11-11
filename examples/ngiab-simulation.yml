@@ -1,0 +1,12 @@
+# hydrowf-tools pipelines/tests/ngiab-simulation.yml, with the hydrofabric in S3 (see README.md: upload it first).
+# (s3://<bucket>/<key>; Argo reads the key from its default artifact repository).
+feature: gage-01031510
+start_date: "2017-10-01"
+end_date: "2019-09-30"
+run_name: cfe-01031510
+hydrofabric:
+  class: File
+  location: s3://my-bucket/hydrofabric/v2.2/conus_nextgen.gpkg
+hydrofabric_graph:
+  class: File
+  location: s3://my-bucket/hydrofabric/v2.2/conus_igraph_network.gpickle

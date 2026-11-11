@@ -1,0 +1,21 @@
+[project]
+name = "hydrowf-platform"
+version = "0.1.0"
+description = "hydrowf backend: OGC API - Processes plugins, CWL-to-Argo translator, publishing"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = ["pyyaml>=6"]
+
+[project.scripts]
+hydrowf-cwl2argo = "hydrowf_platform.translator:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
