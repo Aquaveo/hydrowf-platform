@@ -6,9 +6,9 @@ time, so each step becomes one concrete Argo container template.
 
 Conventions, matching what cwltool does with the hydrowf tools:
 
-- ``runtime.outdir`` is ``/cwl-output`` (an emptyDir), also the working directory and HOME
+- ``runtime.outdir`` is ``dockerOutputDirectory`` or ``/cwl-output`` (an emptyDir), also the working directory and HOME
   (cwltool sets HOME to the output dir; ngiab-preprocess finds the hydrofabric through it).
-- InitialWorkDir entries are artifacts under ``/cwl-output`` (``entryname``, or the basename);
+- InitialWorkDir entries are artifacts under ``runtime.outdir`` (``entryname``, or the basename);
   other File/Directory inputs go under ``/cwl-inputs/<input>/``.
 - Workflow-level File/Directory inputs have ``location: s3://<bucket>/<key>`` in the job;
   Argo reads the key from its default artifact repository.
@@ -30,7 +30,7 @@ from typing import Any, Callable
 
 import yaml
 
-OUTDIR = "/cwl-output"
+OUTDIR = "/cwl-output"   # default; a tool's DockerRequirement.dockerOutputDirectory overrides it
 INDIR = "/cwl-inputs"
 REF = re.compile(r"\$\(([^)]*)\)")
 FILE_CLASSES = ("File", "Directory")
@@ -189,9 +189,10 @@ def tool_template(name: str, tool: dict, given: dict, sources: dict,
     if not docker or "dockerPull" not in docker:
         raise UnsupportedCWL(f"{name}: needs DockerRequirement.dockerPull")
     res = requirement(tool, "ResourceRequirement") or {}
+    outdir = docker.get("dockerOutputDirectory", OUTDIR)
     cores = res.get("coresMin", 1)
     inputs = resolve_inputs(tool, given)
-    ctx = {"inputs": inputs, "runtime": {"outdir": OUTDIR, "cores": cores}, "self": None}
+    ctx = {"inputs": inputs, "runtime": {"outdir": outdir, "cores": cores}, "self": None}
 
     artifacts: list[dict] = []
     arg_artifacts: list[dict] = []
@@ -210,13 +211,13 @@ def tool_template(name: str, tool: dict, given: dict, sources: dict,
             if src_name not in sources:
                 raise UnsupportedCWL(f"{name}: InitialWorkDir entry must be $(inputs.<File/Directory>)")
             target = evaluate(entry["entryname"], ctx) if entry.get("entryname") else value["basename"]
-            value["path"] = f"{OUTDIR}/{target}"
+            value["path"] = f"{outdir}/{target}"
             value["basename"] = Path(target).name
             add_artifact(src_name, value["path"])
             staged.add(src_name)
         elif isinstance(value, str) and entry.get("entryname"):
             target = evaluate(entry["entryname"], ctx)
-            artifacts.append({"name": f"iwd-{n}", "path": f"{OUTDIR}/{target}", "raw": {"data": value}})
+            artifacts.append({"name": f"iwd-{n}", "path": f"{outdir}/{target}", "raw": {"data": value}})
         else:
             raise UnsupportedCWL(f"{name}: unsupported InitialWorkDir entry {entry}")
 
@@ -244,7 +245,7 @@ def tool_template(name: str, tool: dict, given: dict, sources: dict,
         if not isinstance(glob, str) or any(c in glob for c in "*?["):
             raise UnsupportedCWL(f"{name}.{out_name}: glob {glob!r} is not an exact path "
                                  "(an Argo output artifact needs one path)")
-        outputs.append({"name": k8s_name(out_name), "path": f"{OUTDIR}/{glob}"})
+        outputs.append({"name": k8s_name(out_name), "path": f"{outdir}/{glob}"})
         out_info[out_name] = {"class": d["type"], "basename": Path(glob).name}
 
     template = {
@@ -256,10 +257,10 @@ def tool_template(name: str, tool: dict, given: dict, sources: dict,
             "image": docker["dockerPull"],
             "command": command,
             "args": args,
-            "workingDir": OUTDIR,
-            "env": [{"name": "HOME", "value": OUTDIR}],
+            "workingDir": outdir,
+            "env": [{"name": "HOME", "value": outdir}],
             "resources": {"requests": {"cpu": str(cores), "memory": f"{res.get('ramMin', 1024)}Mi"}},
-            "volumeMounts": [{"name": "cwl-output", "mountPath": OUTDIR}],
+            "volumeMounts": [{"name": "cwl-output", "mountPath": outdir}],
         },
     }
     return template, arg_artifacts, out_info

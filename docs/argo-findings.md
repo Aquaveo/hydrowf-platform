@@ -15,7 +15,7 @@ RustFS (2026-11-11), gage-01031510, 2017-10 to 2019-09.
 | `Workflow` with plain steps | DAG; `dependencies` from `step/output` sources |
 | `File`/`Directory` from the job (`s3://` location) | input artifact, S3 key in the default artifact repository |
 | `Directory` between steps | output artifact (`.tgz`) → `from: {{tasks.X.outputs.artifacts.Y}}` |
-| `InitialWorkDirRequirement` (`entryname`, empty file) | artifact at that path under `/cwl-output`; `raw: {data: ""}` |
+| `InitialWorkDirRequirement` (`entryname`, empty file) | artifact at that path under the output dir; `raw: {data: ""}` |
 | `$(runtime.outdir)`, `$(inputs.x.basename)`, `$(runtime.cores)` | resolved at translation time |
 | `ResourceRequirement` | `resources.requests` |
 | `NetworkAccess` | nothing to do (pods have network) |
@@ -37,8 +37,9 @@ name); the preprocess and run command lines are word-for-word what cwltool ran.
 
 ## cwltool-only
 
-`dockerOutputDirectory` and `loadListing: deep_listing` in the tools only make cwltool's
-`--cachedir` work; Argo ignores them. Argo's equivalent is `memoize`, with a key the translator
+`loadListing: deep_listing` in the tools only makes cwltool's `--cachedir` work; Argo ignores it.
+`dockerOutputDirectory` sets the output dir for both (the translator defaults to `/cwl-output`).
+Argo's caching equivalent is `memoize`, with a key the translator
 will have to compute (inputs, image digests).
 
 ## Open

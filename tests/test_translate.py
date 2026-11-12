@@ -97,6 +97,19 @@ def test_container_runs_in_the_output_dir_with_resources(workflow):
     assert c["volumeMounts"] == [{"name": "cwl-output", "mountPath": "/cwl-output"}]
 
 
+def test_docker_output_directory_sets_the_output_dir(workflow):
+    docker = {"dockerPull": "img/make:1", "dockerOutputDirectory": "/data"}
+    make = {**MAKE, "requirements": {**MAKE["requirements"], "DockerRequirement": docker}}
+    t = templates(run(workflow(make=make)))["make-it"]
+    c = t["container"]
+    assert c["args"] == ["-o", "/data/r1"]
+    assert c["workingDir"] == "/data"
+    assert {"name": "HOME", "value": "/data"} in c["env"]
+    assert c["volumeMounts"] == [{"name": "cwl-output", "mountPath": "/data"}]
+    assert t["outputs"]["artifacts"] == [{"name": "out", "path": "/data/r1"}]
+    assert {"name": "data", "path": "/data/.cache/data.gpkg"} in t["inputs"]["artifacts"]
+
+
 def test_step_default_overrides_tool_default(workflow):
     wf = {**WORKFLOW, "steps": {**WORKFLOW["steps"],
                                 "make_it": {"run": "make.cwl", "in": {"data": "data", "name": {"default": "other"}},
